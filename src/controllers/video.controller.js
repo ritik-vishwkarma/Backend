@@ -30,13 +30,15 @@ const getAllVideos = asyncHandler(async (req, res) => {
     const skip = (pageNumber - 1) * limitOfComments
     const pageSize = limitOfComments
 
+    const queryString = query ? query.toString() : ''
+
     const videos = await Video.aggregatePaginate(
         Video.aggregate([
             {
                 $match: {
                     $or: [
-                        { title: { $regex: query, $options: 'i' } },
-                        { description: { $regex: query, $options: 'i' } }
+                        { title: { $regex: queryString, $options: 'i' } },
+                        { description: { $regex: queryString, $options: 'i' } }
                     ],
                     isPublished: true,
                     owner: user._id
@@ -157,21 +159,227 @@ const publishAVideo = asyncHandler(async (req, res) => {
 const getVideoById = asyncHandler(async (req, res) => {
     const { videoId } = req.params
     //TODO: get video by id
+
+    if (!videoId) {
+        throw new ApiError(400, "Video ID is required")
+    }
+
+    const video = await Video.findById(videoId)
+
+    if (!video) {
+        throw new ApiError(404, "Video not found")
+    }
+    
+    return res
+    .status(200)
+    .json(
+        new ApiResponse(
+            200,
+            video,
+            "Video retrieved Successfully"
+        )
+    )
 })
 
 const updateVideo = asyncHandler(async (req, res) => {
     const { videoId } = req.params
-    //TODO: update video details like title, description, thumbnail
+    //TODO: update video details like title, description
+
+    console.log(req);
+    const { title, description } = req.body
+    const { _id } = req.user
+
+    if (!videoId) {
+        throw new ApiError(400, "Video ID is required")
+    }
+
+    const video = await Video.findById(videoId)
+
+    if (!video) {
+        throw new ApiError(404, "Video not found")
+    }
+
+    if (!title?.trim() && !description?.trim()) {
+        throw new ApiError(400, "Title and Description is required")
+    }
+
+    const user = await User.findById(_id)
+
+    if (!user) {
+        throw new ApiError(404, "User not found")
+    }
+
+    console.log(user._id)
+    console.log(video.owner)
+
+    if (!video.owner.toString() === user._id.toString()) {
+        throw new ApiError(401, "Only owner can update the video")
+    }
+
+    const updateVideo = await Video.findByIdAndUpdate(
+        videoId, 
+        {
+            $set: {
+                title,
+                description
+            }
+        },
+        {
+            new: true
+        }
+    )
+
+    if (!updateVideo) {
+        throw new ApiError(500, "Failed to update video description or title")
+    }
+
+    return res
+    .status(200)
+    .json(
+        new ApiResponse(
+            200, 
+            updateVideo,
+            "Video updated Successfully"
+        )
+    )
+})
+
+const updateVideoThumbnail = asyncHandler(async (req, res) => {
+    const { videoId } = req.params
+    //TODO: update video thumbnail
+
+    const { _id } = req.user
+
+    const video = await Video.findById(videoId)
+    const user = await User.findById(_id)
+
+    if (!user) {
+        throw new ApiError(404, "User not found")
+    }
+
+    if (!video) {
+        throw new ApiError(404, "Video not found")
+    }
+
+    if (!video.owner.toString() === user._id.toString()) {
+        throw new ApiError(401, "Only owner can update the video")
+    }
+
+    const thumbnailFilePath = req.file.path
+
+    if (!thumbnailFilePath) {
+        throw new ApiError(400, "Thumbnail file is required")
+    }
+
+    const thumbnailUrl = await uploadOnCloudinary(thumbnailFilePath)
+
+    if (!thumbnailUrl) {
+        throw new ApiError(500, "No url found for thumbnail")
+    }
+
+    const updateThumbnail = await Video.findByIdAndUpdate(
+        videoId,
+        {
+            $set: {
+                videoFile: thumbnailUrl.url
+            }
+        },
+        {
+            new: true
+        }
+    )
+
+    if (!updateThumbnail) {
+        throw new ApiError(500, "Failed to update the thumbnail")
+    }
+
+    return res
+    .status(200)
+    .json(
+        new ApiResponse(
+            200,
+            {},
+            "Thumbnail updated Successfully"
+        )
+    )
 })
 
 const deleteVideo = asyncHandler(async (req, res) => {
     const { videoId } = req.params
-    // TODO: delete video
+    //TODO: delete video  
+    const { _id } = req.user  
+
+    if (!videoId) {
+        throw new ApiError(400, "Video ID is required")
+    }
+
+    const video = await Video.findById(videoId)
+
+    if (!video) {
+        throw new ApiError(400, "Video not found")
+    }
+
+    if (!video.owner.toString() === _id.toString()) {
+        throw new ApiError(401, "Only owner can delete the video")
+    }
+
+    // TODO: delete likes and comments associated with the video
+
+    const deleteVideo = await Video.findByIdAndDelete(videoId)
+
+    if (!deleteVideo) {
+        throw new ApiError(400, "Failed to delete video")
+    }
+
+    return res
+    .status(200)
+    .json(
+        new ApiResponse(
+            200,
+            null,
+            "Video deleted Successfully"
+        )
+    )
 })
 
 const togglePublishStatus = asyncHandler(async (req, res) => {
     const { videoId } = req.params
 
+    if (!videoId) {
+        throw new ApiError(400, "Video ID is required")
+    }
+
+    const video = await Video.findById(videoId)
+
+    if (!video) {
+        throw new ApiError(404, "Video not found")
+    }
+
+    const updatedVideo = await Video.findByIdAndUpdate(
+        videoId,
+        {
+            $set: {
+                isPublic: !video.isPublic
+            }
+        },
+        {
+            new: true
+        }
+    )
+
+    if (!updatedVideo) {
+        throw new ApiError(404, "Video cannot be updated")
+    }
+
+    return res
+    .status(200)
+    .json(
+        new ApiError(
+            200,
+            {},
+            "Video status updated"
+        )
+    )
 })
 
 export {
@@ -179,6 +387,7 @@ export {
     publishAVideo,
     getVideoById,
     updateVideo,
+    updateVideoThumbnail,
     deleteVideo,
     togglePublishStatus
 }
