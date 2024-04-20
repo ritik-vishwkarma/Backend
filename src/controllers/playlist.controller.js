@@ -1,5 +1,5 @@
-import mongoose from "mongoose"
 import { Playlist } from "../models/playlist.model.js";
+import { Video } from "../models/video.model.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
@@ -79,7 +79,7 @@ const getPlaylistById = asyncHandler(async (req, res) => {
 const addVideoToPlaylist = asyncHandler(async (req, res) => {
     const { playlistId, videoId } = req.params
 
-    const video = await Playlist.findById(videoId);
+    const video = await Video.findById(videoId);
 
     if (!video) {
         throw new ApiError(404, "Video not found")
@@ -116,17 +116,97 @@ const removeVideoFromPlaylist = asyncHandler(async (req, res) => {
     const { playlistId, videoId } = req.params
     // TODO: remove video from playlist
 
+    const video = await Video.findById(videoId);
+
+    if (!video) {
+        throw new ApiError(404, "Video not found")
+    }
+
+    const removeVideo = await Playlist.findByIdAndUpdate(
+        playlistId,
+        {
+            $pull: {
+                videos: videoId,
+            }
+        },
+        {
+            new: true
+        }
+    )
+
+    if (!removeVideo) {
+        throw new ApiError(400, "Failed to remove Video from Playlist")
+    }
+
+    return res
+    .status(200)
+    .json(
+        new ApiResponse(
+            200,
+            {playlist: removeVideo},
+            "Video removed from Playlist Successfully"
+        )
+    )
+
 })
 
 const deletePlaylist = asyncHandler(async (req, res) => {
     const { playlistId } = req.params
     // TODO: delete playlist
+
+    const playlist = await Playlist.findByIdAndDelete(playlistId)
+
+    if (!playlist) {
+        throw new ApiError(400, "Failed to delete playlist")
+    }
+
+    return res
+    .status(200)
+    .json(
+        new ApiResponse(
+            200,
+            {},
+            "Playlist deleted Successfully"
+        )
+    )
 })
 
 const updatePlaylist = asyncHandler(async (req, res) => {
     const { playlistId } = req.params
     const { name, description } = req.body
     //TODO: update playlist
+
+    const updatedName = name.trim()
+    const updatedDescription = description.trim()
+
+    if (!updatedName || !updatedDescription) {
+        throw new ApiError(400, "Playlist name and description is required")
+    }
+
+    const playlist = await Playlist.findByIdAndUpdate(
+        playlistId, 
+        {
+            name: updatedName,
+            description: updatedDescription
+        },
+        {
+            new: true
+        }
+    )
+
+    if (!playlist) {
+        throw new ApiError(400, "Failed to update playlist")
+    }
+
+    return res
+    .status(200)
+    .json(
+        new ApiResponse(
+            200,
+            {playlist},
+            "Playlist updated Successfully"
+        )
+    )
 })
 
 
