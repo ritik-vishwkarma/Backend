@@ -5,15 +5,15 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 
 const createPlaylist = asyncHandler(async(req, res) => {
-    const {name, description} = req.body
+    const { name, description } = req.body
 
-    if (!name.trim() || !description.trim()) {
+    if (!name || !description || !name.trim() || !description.trim()) {
         throw new ApiError(400, "PlayList name and description is required")
     }
 
     const playlist = await Playlist.create({
-        name,
-        description,
+        name: name.trim(),
+        description: description.trim(),
         owner: req.user._id
     })
 
@@ -35,7 +35,7 @@ const createPlaylist = asyncHandler(async(req, res) => {
 })
 
 const getUserPlaylists = asyncHandler(async (req, res) => {
-    const {userId} = req.params
+    const { userId } = req.params
     //TODO: get user playlists
 
     const getPlaylists = await Playlist.find({
@@ -69,13 +69,15 @@ const getPlaylistById = asyncHandler(async (req, res) => {
     .status(200)
     .json(new ApiResponse(
         200,
-        { playlist },
+        { 
+            playlist
+        },
         "User playlist retrived Successfully"
     ))
 })
 
 const addVideoToPlaylist = asyncHandler(async (req, res) => {
-    const {playlistId, videoId} = req.params
+    const { playlistId, videoId } = req.params
 
     const video = await Playlist.findById(videoId);
 
@@ -111,19 +113,19 @@ const addVideoToPlaylist = asyncHandler(async (req, res) => {
 })
 
 const removeVideoFromPlaylist = asyncHandler(async (req, res) => {
-    const {playlistId, videoId} = req.params
+    const { playlistId, videoId } = req.params
     // TODO: remove video from playlist
 
 })
 
 const deletePlaylist = asyncHandler(async (req, res) => {
-    const {playlistId} = req.params
+    const { playlistId } = req.params
     // TODO: delete playlist
 })
 
 const updatePlaylist = asyncHandler(async (req, res) => {
-    const {playlistId} = req.params
-    const {name, description} = req.body
+    const { playlistId } = req.params
+    const { name, description } = req.body
     //TODO: update playlist
 })
 
